@@ -1,0 +1,82 @@
+﻿@page "/Noms"
+@using System.Text.Json
+@rendermode InteractiveServer
+
+@inject IConfiguration Configuracion;
+@inject HttpClient Http;
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Normas Oficiales Mexicanas de Seguridad y Salud en el Trabajo</PageTitle>
+
+<h3>Buscar Normas</h3>
+<input @bind="searchTerm" placeholder="Buscar Norma" @oninput="SearchNormas" />
+
+<button @onclick="() => GetNorma(searchTerm)">Obtener todas las normas</button>
+
+@if (listaNormas != null && listaNormas.Any())
+{
+    <DataGrid TItem="Normas" Data="@listaNormas" ShowPager="true" AllowSorting="true" AllowFiltering="true">
+        <Columns>
+            <DataGridColumn TItem="Normas" Field="id" Caption="ID" Width="100" />
+            <DataGridColumn TItem="Normas" Field="categoria_noms" Caption="Categoría" Width="200" />
+            <DataGridColumn TItem="Normas" Field="nombre_noms" Caption="Nombre" Width="250" />
+            <DataGridColumn TItem="Normas" Field="descripcion" Caption="Descripción" Width="300" />
+        </Columns>
+    </DataGrid>
+}
+else
+{
+    <h1>Aquí no hay nada</h1>
+}
+
+@code {
+    private string? UrlApi;
+    private Normas normas = new Normas();
+    private string searchTerm = ""; 
+    private List<Normas> listaNormas = new List<Normas>(); 
+
+    protected override void OnInitialized()
+    {
+        UrlApi = Configuracion["ConfiguracionesAplicacion:UrlApi"];
+    }
+
+    private async Task SearchNormas()
+    {
+        await GetNorma(searchTerm); 
+    }
+
+    public async Task GetNorma(string searchTerm = "")
+    {
+        var response = "";
+
+        try
+        {
+            if(searchTerm == ""){
+                response = await Http.GetStringAsync($"{UrlApi}");
+            }
+            else
+            {
+                response = await Http.GetStringAsync($"{UrlApi}/busqueda_noms?searchTerm={searchTerm}");
+            }
+
+          //  var response = await Http.GetStringAsync($"{UrlApi}/busqueda_noms?searchTerm={searchTerm}");
+            await JSRuntime.InvokeVoidAsync("console.log", response);
+
+            var normas = JsonSerializer.Deserialize<List<Normas>>(response);
+
+            if (normas != null)
+            {
+                listaNormas = normas; 
+                StateHasChanged(); 
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("console.log", "No se recibieron datos.");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("console.log", "Error: " + ex.Message);
+        }
+    }
+}
